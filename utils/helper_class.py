@@ -1,3 +1,4 @@
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -48,17 +49,32 @@ class WAScrapper:
         input('Please click enter after loading completes: ')
         time.sleep(2)
         for group_name in self.group_names:
-            group = self.driver.find_element(
-                By.XPATH, f'//*[@title="{group_name.strip()}"]')
-            group.click()
-            # wait until chat are loaded
-            WebDriverWait(self.driver, WAIT_TIME).until(
-                EC.presence_of_element_located((By.CLASS_NAME, '_27K43')))
-            # perform a scroll event
-            self.perform_scroll()
-            chats = self.driver.find_elements(By.CLASS_NAME, '_27K43')
-            with open('chats.txt', 'a') as f:
-                for chat in chats:
-                    f.writelines(chat.text + '\n\n\n')
+            try:
+
+                group = self.driver.find_element(
+                    By.XPATH, f'//*[@title="{group_name.strip()}"]')
+                group.click()
+                # wait until chat are loaded
+                WebDriverWait(self.driver, WAIT_TIME).until(
+                    EC.presence_of_element_located((By.CLASS_NAME, '_3nbHh')))
+                # perform a scroll event
+                self.perform_scroll()
+                # self.save_media_content()
+
+                chats = self.driver.find_elements(By.CLASS_NAME, '_3nbHh')
+                with open('chats.txt', 'a') as f:
+                    for chat in chats:
+                        f.writelines(chat.text + '\n\n\n')
+            except NoSuchElementException:
+                print(f'Group with the name {group_name} could not be found')
+                sys.exit()
         print('Completed')
-        time.sleep(10)
+        time.sleep(2)
+
+    def save_media_content(self):
+        time.sleep(5)
+        media = self.driver.find_element(
+            By.XPATH, '//*[@id="main"]/div[2]/div/div[2]/div[2]/div[16]/div/div/div[1]/div[1]/div/div[1]/div[1]/div[2]/img')
+        with open('media.png', 'wb') as f:
+            f.write(media.screenshot_as_png)
+        self.driver.quit()
