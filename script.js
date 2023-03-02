@@ -1,9 +1,3 @@
-import os
-CHROME_DRIVER_PATH = 'webdriver/chromedriver'
-session_user = os.getlogin()
-CHROME_PROFILE = f"user-data-dir=/home/{session_user}/.config/google-chrome/whatsapp_test"
-# CHROME_PROFILE = f"user-data-dir=/home/{session_user}/.config/google-chrome/whatsapp_tests"
-XHR_SCRIPT = '''
 var uri = arguments[0];
 var callback = arguments[1];
 var toBase64 = function (buffer) {
@@ -54,12 +48,3 @@ xhr.onerror = function () {
 };
 xhr.open("GET", uri);
 xhr.send();
-'''
-
-CLASSES_NAME = {
-    'FULL_CHAT': '_3nbHh',
-    'CHAT_MESSAGE': '_11JPr',
-    'TIMESTAMP': 'cm280p3y',
-    'SENDER_INFO': 'copyable-text',
-
-}

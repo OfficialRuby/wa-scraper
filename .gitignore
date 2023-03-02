@@ -132,4 +132,11 @@ dmypy.json
 
 chromedriver
 *.png
-*.txt
+# *.txt
+scraper.py
+old_group.txt
+ex.txt
+sender-classes.txt
+images/
+ref/
+helper_backup.py

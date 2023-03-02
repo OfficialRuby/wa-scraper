@@ -1,3 +1,6 @@
+
+import datetime
+import base64
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
@@ -8,7 +11,9 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.webdriver import WebDriver
 import time
 import sys
-from utils.settings import CHROME_PROFILE, CHROME_DRIVER_PATH
+import os
+from utils.settings import CHROME_PROFILE, CHROME_DRIVER_PATH, XHR_SCRIPT
+from utils.validators import Validator
 WAIT_TIME = 10
 SCROLL_COUNT = 4
 
@@ -28,12 +33,13 @@ class WAScrapper:
         try:
             with open('groups.txt', 'r') as f:
                 self.group_names = f.readlines()
+            os.mkdir('images')
+
         except FileNotFoundError:
             print("groups.txt file missing, please create this file in the absolute path")
             sys.exit()
-
-    def send_message(self, contact_name):
-        pass
+        except FileExistsError:
+            pass
 
     def perform_scroll(self):
         '''perform scroll action'''
@@ -59,9 +65,13 @@ class WAScrapper:
                     EC.presence_of_element_located((By.CLASS_NAME, '_3nbHh')))
                 # perform a scroll event
                 self.perform_scroll()
-                # self.save_media_content()
-
+                time.sleep(2)
+                # self.download_image()
+                self.get_sender_info()
                 chats = self.driver.find_elements(By.CLASS_NAME, '_3nbHh')
+                images = self.driver.find_elements(
+                    By.CSS_SELECTOR, 'img.jciay5ix')
+                self.download_image(images)
                 with open('chats.txt', 'a') as f:
                     for chat in chats:
                         f.writelines(chat.text + '\n\n\n')
@@ -70,11 +80,25 @@ class WAScrapper:
                 sys.exit()
         print('Completed')
         time.sleep(2)
-
-    def save_media_content(self):
-        time.sleep(5)
-        media = self.driver.find_element(
-            By.XPATH, '//*[@id="main"]/div[2]/div/div[2]/div[2]/div[16]/div/div/div[1]/div[1]/div/div[1]/div[1]/div[2]/img')
-        with open('media.png', 'wb') as f:
-            f.write(media.screenshot_as_png)
         self.driver.quit()
+
+    def download_image(self, elements: list):
+        for image in elements:
+            img_src = image.get_attribute('src')
+            validator = Validator()
+            validator.validate_link(img_src)
+            if validator.is_valid:
+                result = self.driver.execute_async_script(
+                    XHR_SCRIPT, validator.validated_link)
+                if type(result) == int:
+                    raise Exception("Request failed with status %s" % result)
+                final_image = base64.b64decode(result)
+                with open(f'images/{datetime.datetime.now()}.jpg', 'wb') as f:
+                    f.write(final_image)
+
+    def get_sender_info(self):
+        senders = self.driver.find_elements(
+            By.CSS_SELECTOR, 'div.copyable-text')
+        for sender in senders:
+            sender_info = sender.get_attribute('data-pre-plain-text')
+            print(sender_info)
