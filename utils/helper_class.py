@@ -1,3 +1,4 @@
+import pandas as pd
 import re
 from collections import OrderedDict, namedtuple
 from selenium.webdriver.common.action_chains import ActionChains
@@ -32,17 +33,20 @@ class WAScrapper:
         self.driver.get("https://web.whatsapp.com/")
         self.driver.maximize_window()
         self.SCROLL_COUNT = SCROLL_COUNT
+        self.CSV_FILENAME = None
         try:
             with open('groups.txt', 'r') as f:
                 self.group_names = f.readlines()
             if not os.path.isdir('images'):
                 os.mkdir('images')
+            if not os.path.isdir('output'):
+                os.mkdir('output')
 
         except FileNotFoundError:
             print("groups.txt file missing, please create this file in the absolute path")
             sys.exit()
 
-    def perform_scroll(self):
+    def __perform_scroll(self):
         '''perform scroll action'''
         chat_container = self.driver.find_element(
             By.XPATH, '//*[@data-testid="conversation-panel-messages"]')
@@ -50,62 +54,6 @@ class WAScrapper:
             chat_container.send_keys(Keys.CONTROL + Keys.HOME)
             # wait for chats to load
             time.sleep(2)
-
-    def fetch_messages(self):
-        '''collect chat history'''
-        input('Please click enter after loading completes: ')
-        time.sleep(2)
-        for group_name in self.group_names:
-            try:
-
-                group = self.driver.find_element(
-                    By.XPATH, f'//*[@title="{group_name.strip()}"]')
-                group.click()
-                # wait until chat are loaded
-                WebDriverWait(self.driver, WAIT_TIME).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, '_3nbHh')))
-                # perform a scroll event
-                # self.perform_scroll()
-                time.sleep(2)
-                # self.download_image()
-                # self.get_sender_info()
-                # self.perform_side_panel_scroll()
-                time.sleep(1)
-                self.get_focusable_list()
-                chats = self.driver.find_elements(By.CLASS_NAME, '_3nbHh')
-                images = self.driver.find_elements(
-                    By.CSS_SELECTOR, 'img.jciay5ix')
-                self.download_image(images)
-                with open('chats.txt', 'a') as f:
-                    for chat in chats:
-                        f.writelines(chat.text + '\n\n\n')
-            except NoSuchElementException:
-                print(f'Group with the name {group_name} could not be found')
-                sys.exit()
-        print('Completed')
-        time.sleep(2)
-        self.driver.quit()
-
-    def download_image(self, elements: list):
-        for image in elements:
-            img_src = image.get_attribute('src')
-            validator = Validator()
-            validator.validate_link(img_src)
-            if validator.is_valid:
-                result = self.driver.execute_async_script(
-                    XHR_SCRIPT, validator.validated_link)
-                if type(result) == int:
-                    raise Exception("Request failed with status %s" % result)
-                final_image = base64.b64decode(result)
-                with open(f'images/{datetime.datetime.now()}.jpg', 'wb') as f:
-                    f.write(final_image)
-
-    def get_sender_info(self):
-        senders = self.driver.find_elements(
-            By.CSS_SELECTOR, 'div.copyable-text')
-        for sender in senders:
-            sender_info = sender.get_attribute('data-pre-plain-text')
-            print(sender_info)
 
     def get_focusable_list(self):
         messages = self.driver.find_elements(By.CLASS_NAME, '_7GVCb')
@@ -216,48 +164,70 @@ class WAScrapper:
                 with open(image_path, 'wb') as f:
                     f.write(final_image)
                 return image_path
-            return 'Hello'
+            return
         except NoSuchElementException:
             # TODO: refactor to use logging in production
             print(
                 f'Error occured: unable to locate class selector with the value {selector}')
             pass
         except IndexError:
-            print('Image index out of range')
+            # print('Image index out of range')
             pass
 
-    def perform_test(self):
+    def collect_chats(self):
         '''collect chat history'''
         input('Please click enter after loading completes: ')
         time.sleep(2)
         for group_name in self.group_names:
+            chat_history = []
             try:
 
                 group = self.driver.find_element(
                     By.XPATH, f'//*[@title="{group_name.strip()}"]')
                 group.click()
+                chat_row = CLASSES_NAME.get('CHAT_ROW')
                 # wait until chat are loaded
                 WebDriverWait(self.driver, WAIT_TIME).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, CLASSES_NAME.get('CHAT_ROW'))))
+                    EC.presence_of_element_located((By.CLASS_NAME, chat_row)))
                 time.sleep(2)
-                # self.__get_chat_image()
-                # self.get_sender_info()
-                # self.perform_side_panel_scroll()
+                self.__perform_scroll()
                 time.sleep(1)
-
                 chats = self.driver.find_elements(
-                    By.CLASS_NAME, CLASSES_NAME.get('CHAT_ROW'))
-                for webelement in chats:
-                    pass
+                    By.CLASS_NAME, chat_row)
+                if chats:
+                    for webelement in chats:
+                        chat = self.get_message_data(webelement)
+                        chat_history.append(chat)
+                    return chat_history
+                else:
+                    raise Exception(
+                        f'Error: {chat_row} is not a valid class bame')
 
-                    # chat_id = self.__get_chat_id(webelement)
-                    # chat_id = self.__get_chat_image(webelement)
-                    # chat_id = self.__get_chat_timestamp(webelement)
-                    # chat_id = self.__get_chat_author(webelement)
-                    # chat_id = self.__get_chat_message(webelement)
-            except KeyError:
+            except NoSuchElementException:
                 print(f'Group with the name {group_name} could not be found')
                 sys.exit()
         print('Completed')
         time.sleep(2)
         self.driver.quit()
+
+    def get_message_data(self, webelement):
+        '''collect message info for messages in chat history'''
+        message_id = self.__get_chat_id(webelement)
+        message_image = self.__get_chat_image(webelement)
+        timestamp = self.__get_chat_timestamp(webelement)
+        author = self.__get_chat_author(webelement)
+        text = self.__get_chat_message(webelement)
+        ChatMessage = namedtuple(
+            'ChatMessage', ['message_id', 'message_image', 'timestamp', 'author', 'text'])
+        message = ChatMessage._make(
+            [message_id, message_image, timestamp, author, text])
+        return message
+
+    def export_chat_to_csv(self):
+        if self.CSV_FILENAME:
+            file_name = self.CSV_FILENAME
+        else:
+            file_name = f'output/{datetime.datetime.now()}.csv'
+        chats = self.collect_chats()
+        dataframe = pd.DataFrame(chats)
+        return dataframe.to_csv(file_name)

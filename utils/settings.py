@@ -65,6 +65,4 @@ CLASSES_NAME = {
     'IMAGE_SELECTOR': 'img.jciay5ix',
     'DATA_ID': 'data-id',
     'COPYABLE_TEXT': 'div.copyable-text',
-
-
 }
