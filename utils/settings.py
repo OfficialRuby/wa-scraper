@@ -58,8 +58,13 @@ xhr.send();
 
 CLASSES_NAME = {
     'FULL_CHAT': '_3nbHh',
-    'CHAT_MESSAGE': '_11JPr',
+    'CHAT_ROW': 'hY_ET',
+    'CHAT_MESSAGE': 'span.selectable-text',
     'TIMESTAMP': 'cm280p3y',
     'SENDER_INFO': 'copyable-text',
+    'IMAGE_SELECTOR': 'img.jciay5ix',
+    'DATA_ID': 'data-id',
+    'COPYABLE_TEXT': 'div.copyable-text',
+
 
 }

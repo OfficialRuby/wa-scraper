@@ -140,3 +140,4 @@ sender-classes.txt
 images/
 ref/
 helper_backup.py
+*.conf
