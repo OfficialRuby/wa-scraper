@@ -114,22 +114,40 @@ class WAScrapper:
             pass
 
     def __get_chat_timestamp(self, webelement) -> str:
+        is_24hr_time = False
         try:
-            regex = r"\[(\d{1,2}:\d{2}), (\d{1,2}/\d{1,2}/\d{4})\]"
+            regex1 = r"\[(\d{1,2}:\d{2}), (\d{1,2}/\d{1,2}/\d{4})\]"
+            regex2 = r"\[(\d{1,2}:\d{2} [aApP][mM]), (\d{1,2}/\d{1,2}/\d{4})\]"
             copyable_text = CLASSES_NAME.get('COPYABLE_TEXT')
             chat_class = webelement.find_element(
                 By.CSS_SELECTOR, copyable_text)
             time_str = chat_class.get_attribute('data-pre-plain-text')
             if time_str:
-                match = re.search(regex, time_str)
-                if match:
-                    time = match.group(1)
-                    date = match.group(2)
-                    timestamp_str = date+" " + time
+                print(time_str)
+                match1 = re.search(regex1, time_str)
+                match2 = re.search(regex2, time_str)
+                if match1:
+                    time_str = match1.group(1)
+                    date_str = match1.group(2)
+                    timestamp_str = date_str+" " + time_str
                     datetime_fmt = "%m/%d/%Y %H:%M"
                     timestamp = datetime.datetime.strptime(
                         timestamp_str, datetime_fmt)
-                return timestamp
+                    return timestamp
+                elif match2:
+                    time_str = match2.group(1)
+                    date_str = match2.group(2)
+                    datetime_str = date_str + " " + time_str
+                    try:
+                        timestamp = datetime.datetime.strptime(
+                            datetime_str, '%d/%m/%Y %I:%M %p')
+                        return timestamp
+                    except ValueError:
+                        timestamp = datetime.datetime.strptime(
+                            datetime_str, '%m/%d/%Y %I:%M %p')
+                        return timestamp
+
+            return
 
         except NoSuchElementException:
             # not all elements has sender info

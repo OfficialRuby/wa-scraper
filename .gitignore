@@ -141,3 +141,4 @@ images/
 ref/
 helper_backup.py
 *.conf
+output/
