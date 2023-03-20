@@ -1,6 +1,8 @@
+from tqdm import tqdm
+import dateparser
 import pandas as pd
 import re
-from collections import OrderedDict, namedtuple
+from collections import namedtuple
 from selenium.webdriver.common.action_chains import ActionChains
 import datetime
 import base64
@@ -10,12 +12,17 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.webdriver import WebDriver
+from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.webdriver.firefox.service import Service as GeckoService
+
+from selenium.webdriver.chrome.webdriver import WebDriver as ChromeWebDriver
+from selenium.webdriver.firefox.webdriver import WebDriver as GeckoWebDriver
 import time
 import sys
 import os
-from utils.settings import CHROME_PROFILE, CHROME_DRIVER_PATH, XHR_SCRIPT, CLASSES_NAME
+from utils.settings import (CHROME_PROFILE, CHROME_DRIVER_PATH, XHR_SCRIPT,
+                            CLASSES_NAME, BROWSER_TYPE, GECKO_PROFILE, GECKO_DRIVER_PATH,
+                            DATE_FORMAT)
 from utils.validators import Validator
 WAIT_TIME = 10
 SCROLL_COUNT = 4
@@ -26,14 +33,20 @@ class WAScrapper:
 
     def __init__(self) -> None:
         '''Initialize module'''
-        self.options = webdriver.ChromeOptions()
-        self.options.add_argument(CHROME_PROFILE)
-        self.service = Service(CHROME_DRIVER_PATH)
-        self.driver = WebDriver(service=self.service, options=self.options)
+        if BROWSER_TYPE == 'gecko':
+            self.firefox_profile = webdriver.FirefoxProfile(GECKO_PROFILE)
+            self.service = GeckoService(GECKO_DRIVER_PATH)
+            self.driver = GeckoWebDriver(service=self.service, firefox_profile=self.firefox_profile)
+        elif BROWSER_TYPE == 'chrome':
+            self.options = webdriver.ChromeOptions()
+            self.options.add_argument(CHROME_PROFILE)
+            self.service = ChromeService(CHROME_DRIVER_PATH)
+            self.driver = ChromeWebDriver(service=self.service, options=self.options)
         self.driver.get("https://web.whatsapp.com/")
         self.driver.maximize_window()
         self.SCROLL_COUNT = SCROLL_COUNT
         self.CSV_FILENAME = None
+        self.DATE_FORMAT = DATE_FORMAT
         try:
             with open('groups.txt', 'r') as f:
                 self.group_names = f.readlines()
@@ -123,28 +136,33 @@ class WAScrapper:
                 By.CSS_SELECTOR, copyable_text)
             time_str = chat_class.get_attribute('data-pre-plain-text')
             if time_str:
-                print(time_str)
                 match1 = re.search(regex1, time_str)
                 match2 = re.search(regex2, time_str)
                 if match1:
                     time_str = match1.group(1)
                     date_str = match1.group(2)
                     timestamp_str = date_str+" " + time_str
-                    datetime_fmt = "%m/%d/%Y %H:%M"
-                    timestamp = datetime.datetime.strptime(
-                        timestamp_str, datetime_fmt)
-                    return timestamp
+                    datetime_fmt = self.DATE_FORMAT
+                    try:
+                        timestamp = datetime.datetime.strptime(
+                            timestamp_str, datetime_fmt)
+                        return timestamp
+                    except ValueError:
+                        timestamp = dateparser.parse(datetime_str)
+                        return timestamp
                 elif match2:
                     time_str = match2.group(1)
                     date_str = match2.group(2)
                     datetime_str = date_str + " " + time_str
+                    datetime_fmt = self.DATE_FORMAT
                     try:
+                        # timestamp = datetime.datetime.strptime(
+                        #     datetime_str, '%d/%m/%Y %I:%M %p')
                         timestamp = datetime.datetime.strptime(
-                            datetime_str, '%d/%m/%Y %I:%M %p')
+                            datetime_str, datetime_fmt)
                         return timestamp
                     except ValueError:
-                        timestamp = datetime.datetime.strptime(
-                            datetime_str, '%m/%d/%Y %I:%M %p')
+                        timestamp = dateparser.parse(datetime_str)
                         return timestamp
 
             return
@@ -162,7 +180,8 @@ class WAScrapper:
         except NoSuchAttributeException:
             # TODO: refactor to use logging in production
             print(f'Error occured: unable to locate attribute with {data_id}')
-            self.driver.quit()
+            # self.driver.quit()
+            pass
 
     def __get_chat_image(self, webelement) -> str:
         try:
@@ -194,39 +213,45 @@ class WAScrapper:
 
     def collect_chats(self):
         '''collect chat history'''
-        input('Please click enter after loading completes: ')
-        time.sleep(2)
-        for group_name in self.group_names:
+        try:
+            input('Please click enter after loading completes: ')
+            time.sleep(2)
             chat_history = []
-            try:
+            for group_name in self.group_names:
+                try:
 
-                group = self.driver.find_element(
-                    By.XPATH, f'//*[@title="{group_name.strip()}"]')
-                group.click()
-                chat_row = CLASSES_NAME.get('CHAT_ROW')
-                # wait until chat are loaded
-                WebDriverWait(self.driver, WAIT_TIME).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, chat_row)))
-                time.sleep(2)
-                self.__perform_scroll()
-                time.sleep(1)
-                chats = self.driver.find_elements(
-                    By.CLASS_NAME, chat_row)
-                if chats:
-                    for webelement in chats:
-                        chat = self.get_message_data(webelement)
-                        chat_history.append(chat)
-                    return chat_history
-                else:
-                    raise Exception(
-                        f'Error: {chat_row} is not a valid class bame')
+                    group = self.driver.find_element(
+                        By.XPATH, f'//*[@title="{group_name.strip()}"]')
+                    group.click()
+                    chat_row = CLASSES_NAME.get('CHAT_ROW')
+                    # wait until chat are loaded
+                    WebDriverWait(self.driver, WAIT_TIME).until(
+                        EC.presence_of_element_located((By.CLASS_NAME, chat_row)))
+                    time.sleep(2)
+                    self.__perform_scroll()
+                    time.sleep(1)
+                    chats = self.driver.find_elements(
+                        By.CLASS_NAME, chat_row)
+                    if chats:
+                        for webelement in tqdm(chats, ascii=True, desc='Collecting chats'):
+                            chat = self.get_message_data(webelement)
+                            chat_history.append(chat)
+                    else:
+                        raise Exception(
+                            f'Error: {chat_row} is not a valid class bame')
 
-            except NoSuchElementException:
-                print(f'Group with the name {group_name} could not be found')
-                sys.exit()
-        print('Completed')
-        time.sleep(2)
-        self.driver.quit()
+                except NoSuchElementException:
+                    print(f'Group with the name {group_name} could not be found')
+                    pass
+            print('Completed')
+            time.sleep(2)
+            # self.driver.close()
+            self.driver.quit()
+            return
+        except KeyboardInterrupt:
+            print("\n Process terminated by user")
+            self.driver.quit()
+            sys.exit()
 
     def get_message_data(self, webelement):
         '''collect message info for messages in chat history'''
