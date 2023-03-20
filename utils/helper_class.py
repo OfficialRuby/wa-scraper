@@ -247,7 +247,7 @@ class WAScrapper:
             time.sleep(2)
             # self.driver.close()
             self.driver.quit()
-            return
+            return chat_history
         except KeyboardInterrupt:
             print("\n Process terminated by user")
             self.driver.quit()
