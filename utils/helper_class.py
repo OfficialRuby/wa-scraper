@@ -26,6 +26,7 @@ from utils.settings import (CHROME_PROFILE, CHROME_DRIVER_PATH, XHR_SCRIPT,
 from utils.validators import Validator
 WAIT_TIME = 10
 SCROLL_COUNT = 4
+MEDIA_DOWNLOAD_DELAY = 4
 
 
 class WAScrapper:
@@ -188,19 +189,21 @@ class WAScrapper:
             selector = CLASSES_NAME.get('IMAGE_SELECTOR')
             image = webelement.find_elements(
                 By.CSS_SELECTOR, selector)
-            img_src = image[1].get_attribute('src')
-            validator = Validator()
-            validator.validate_link(img_src)
-            if validator.is_valid:
-                result = self.driver.execute_async_script(
-                    XHR_SCRIPT, validator.validated_link)
-                if type(result) == int:
-                    raise Exception("Request failed with status %s" % result)
-                final_image = base64.b64decode(result)
-                image_path = f'images/{datetime.datetime.now()}.jpg'
-                with open(image_path, 'wb') as f:
-                    f.write(final_image)
-                return image_path
+            if image:
+                img_src = image[1].get_attribute('src')
+                validator = Validator()
+                validator.validate_link(img_src)
+                if validator.is_valid:
+
+                    result = self.driver.execute_async_script(
+                        XHR_SCRIPT, validator.validated_link)
+                    if type(result) == int:
+                        raise Exception(f"Request failed with status {result}")
+                    final_image = base64.b64decode(result)
+                    image_path = f'images/{datetime.datetime.now()}.jpg'
+                    with open(image_path, 'wb') as f:
+                        f.write(final_image)
+                    return image_path
             return
         except NoSuchElementException:
             # TODO: refactor to use logging in production
@@ -230,6 +233,7 @@ class WAScrapper:
                     time.sleep(2)
                     self.__perform_scroll()
                     time.sleep(1)
+                    self.__load_chat_media()
                     chats = self.driver.find_elements(
                         By.CLASS_NAME, chat_row)
                     if chats:
@@ -274,3 +278,13 @@ class WAScrapper:
         chats = self.collect_chats()
         dataframe = pd.DataFrame(chats)
         return dataframe.to_csv(file_name)
+
+    def __load_chat_media(self) -> None:
+        # check if media is downloadable
+        download_btn = self.driver.find_elements(
+            By.XPATH, '//span[@data-testid="media-download"]')
+        if download_btn:
+            for icon in download_btn:
+                icon.click()
+                # wait for few secs for download to complete
+                time.sleep(MEDIA_DOWNLOAD_DELAY)
