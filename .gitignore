@@ -133,7 +133,7 @@ dmypy.json
 chromedriver
 geckodriver
 *.png
-# *.txt
+*.txt
 scraper.py
 old_group.txt
 ex.txt

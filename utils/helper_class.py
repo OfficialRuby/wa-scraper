@@ -23,6 +23,7 @@ import os
 from utils.settings import (CHROME_PROFILE, CHROME_DRIVER_PATH, XHR_SCRIPT,
                             CLASSES_NAME, BROWSER_TYPE, GECKO_PROFILE, GECKO_DRIVER_PATH,
                             DATE_FORMAT)
+from utils.user_settings import (PHONE_REGEX)
 from utils.validators import Validator
 WAIT_TIME = 10
 SCROLL_COUNT = 4
@@ -48,6 +49,7 @@ class WAScrapper:
         self.SCROLL_COUNT = SCROLL_COUNT
         self.CSV_FILENAME = None
         self.DATE_FORMAT = DATE_FORMAT
+        self.PHONE_REGEX = PHONE_REGEX
         try:
             with open('groups.txt', 'r') as f:
                 self.group_names = f.readlines()
@@ -110,16 +112,23 @@ class WAScrapper:
 
     def __get_chat_author(self, webelement) -> str:
         try:
-            pattern = r"\b[A-Z][a-z]+ [A-Z][a-z]+\b"
+            pattern = self.PHONE_REGEX
             copyable_text = CLASSES_NAME.get('COPYABLE_TEXT')
             chat_class = webelement.find_element(
                 By.CSS_SELECTOR, copyable_text)
-            time_str = chat_class.get_attribute('data-pre-plain-text')
-            if time_str:
-                match = re.search(pattern, time_str)
+            contact_str = chat_class.get_attribute('data-pre-plain-text')
+            if contact_str:
+                match = re.search(pattern, contact_str)
                 if match:
                     author = match.group()
                     return author
+                # if contact is not in contact list
+                else:
+                    contact = CLASSES_NAME.get('UNSAVED_CONTACT')
+                    author = webelement.find_element(
+                        By.CLASS_NAME, contact)
+                    if author:
+                        return author.text
 
         except NoSuchElementException:
             # not all elements has sender info
@@ -142,11 +151,11 @@ class WAScrapper:
                 if match1:
                     time_str = match1.group(1)
                     date_str = match1.group(2)
-                    timestamp_str = date_str+" " + time_str
+                    datetime_str = date_str+" " + time_str
                     datetime_fmt = self.DATE_FORMAT
                     try:
                         timestamp = datetime.datetime.strptime(
-                            timestamp_str, datetime_fmt)
+                            datetime_str, datetime_fmt)
                         return timestamp
                     except ValueError:
                         timestamp = dateparser.parse(datetime_str)
@@ -157,8 +166,6 @@ class WAScrapper:
                     datetime_str = date_str + " " + time_str
                     datetime_fmt = self.DATE_FORMAT
                     try:
-                        # timestamp = datetime.datetime.strptime(
-                        #     datetime_str, '%d/%m/%Y %I:%M %p')
                         timestamp = datetime.datetime.strptime(
                             datetime_str, datetime_fmt)
                         return timestamp
@@ -284,6 +291,7 @@ class WAScrapper:
         download_btn = self.driver.find_elements(
             By.XPATH, '//span[@data-testid="media-download"]')
         if download_btn:
+            print(download_btn)
             for icon in download_btn:
                 icon.click()
                 # wait for few secs for download to complete

@@ -3,7 +3,7 @@ from utils.user_settings import *
 CHROME_DRIVER_PATH = 'webdriver/chromedriver'
 GECKO_DRIVER_PATH = 'webdriver/geckodriver'
 session_user = os.getlogin()
-CHROME_PROFILE = f"user-data-dir=/home/{session_user}/.config/google-chrome/whatsapp_test"
+CHROME_PROFILE = f"user-data-dir=/home/{session_user}/.config/google-chrome/whatsapp_tests"
 GECKO_PROFILE = f"/home/{session_user}/.mozilla/firefox/"
 # GECKO_PROFILE = f"profiles/firefox/{session_user}.default"
 
@@ -69,4 +69,5 @@ CLASSES_NAME = {
     'IMAGE_SELECTOR': 'img.jciay5ix',
     'DATA_ID': 'data-id',
     'COPYABLE_TEXT': 'div.copyable-text',
+    'UNSAVED_CONTACT': 'WJuYU',
 }
