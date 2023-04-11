@@ -1,9 +1,18 @@
 import os
 from utils.user_settings import *
+WAIT_TIME = 10
+SCROLL_COUNT = 4
+MEDIA_DOWNLOAD_DELAY = 4
 CHROME_DRIVER_PATH = 'webdriver/chromedriver'
 GECKO_DRIVER_PATH = 'webdriver/geckodriver'
 session_user = os.getlogin()
-CHROME_PROFILE = f"user-data-dir=/home/{session_user}/.config/google-chrome/whatsapp_tests"
+if USE_DEFAULT_PROFILE:
+    CHROME_PROFILE = f"user-data-dir=/home/{session_user}/.config/google-chrome/{DEFAULT_PROFILE_NAME}"
+else:
+    CHROME_PROFILE = f"user-data-dir=/home/{session_user}/.config/google-chrome/whatsapp_test"
+
+CHROME_USER = f"--profile-directory={DEFAULT_PROFILE_NAME}"
+
 GECKO_PROFILE = f"/home/{session_user}/.mozilla/firefox/"
 # GECKO_PROFILE = f"profiles/firefox/{session_user}.default"
 

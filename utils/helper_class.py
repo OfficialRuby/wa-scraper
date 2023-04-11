@@ -20,14 +20,8 @@ from selenium.webdriver.firefox.webdriver import WebDriver as GeckoWebDriver
 import time
 import sys
 import os
-from utils.settings import (CHROME_PROFILE, CHROME_DRIVER_PATH, XHR_SCRIPT,
-                            CLASSES_NAME, BROWSER_TYPE, GECKO_PROFILE, GECKO_DRIVER_PATH,
-                            DATE_FORMAT)
-from utils.user_settings import (PHONE_REGEX)
+from utils.settings import *
 from utils.validators import Validator
-WAIT_TIME = 10
-SCROLL_COUNT = 4
-MEDIA_DOWNLOAD_DELAY = 4
 
 
 class WAScrapper:
@@ -42,6 +36,7 @@ class WAScrapper:
         elif BROWSER_TYPE == 'chrome':
             self.options = webdriver.ChromeOptions()
             self.options.add_argument(CHROME_PROFILE)
+            # self.options.add_argument(CHROME_USER)
             self.service = ChromeService(CHROME_DRIVER_PATH)
             self.driver = ChromeWebDriver(service=self.service, options=self.options)
         self.driver.get("https://web.whatsapp.com/")
@@ -70,36 +65,6 @@ class WAScrapper:
             chat_container.send_keys(Keys.CONTROL + Keys.HOME)
             # wait for chats to load
             time.sleep(2)
-
-    def get_focusable_list(self):
-        messages = self.driver.find_elements(By.CLASS_NAME, '_7GVCb')
-        time.sleep(2)
-        for message in messages:
-            new_element = message.parent.find_element(By.CLASS_NAME, '_3FuDI')
-            print(new_element.parent)
-            # print(message.text)
-            # print(message.tag_name)
-            # print(message.parent)
-            print(message.location)
-            # print(message.size)
-            # print(dir(message.parent.save_screenshot('new-images/' +
-            #                                          str(datetime.datetime.now()) + '.png')))
-            # new_elements = message.create_web_element(message.parent)
-            # for element in new_elements:
-            #     print(element.text)
-
-    def perform_side_panel_scroll(self) -> None:
-        side_pane = self.driver.find_element(By.CLASS_NAME, '_2A1R8')
-        loc = side_pane.location
-        x_loc = loc.get('x')
-        y_loc = loc.get('y')
-        print(x_loc, y_loc)
-        # self.driver.scroll(x=x_loc, y=y_loc, delta_x=0,
-        #                    delta_y=500, duration=1)
-        ActionChains(self.driver).scroll(x=x_loc, y=y_loc, delta_x=1000,
-                                         delta_y=0, duration=0).perform()
-        # action_chains = ActionChains(self.driver)
-        # action_chains.scroll(x: int, y: int, delta_x: int, delta_y: int, duration: int=0, origin: str='viewport').perform()
 
     def __get_chat_message(self, webelement) -> str:
         try:
@@ -194,10 +159,11 @@ class WAScrapper:
     def __get_chat_image(self, webelement) -> str:
         try:
             selector = CLASSES_NAME.get('IMAGE_SELECTOR')
-            image = webelement.find_elements(
-                By.CSS_SELECTOR, selector)
+            image = webelement.find_elements(By.CSS_SELECTOR, selector)
+            # print(image)
             if image:
-                img_src = image[1].get_attribute('src')
+                main_image = image[1]
+                img_src = main_image.get_attribute('src')
                 validator = Validator()
                 validator.validate_link(img_src)
                 if validator.is_valid:
@@ -214,8 +180,7 @@ class WAScrapper:
             return
         except NoSuchElementException:
             # TODO: refactor to use logging in production
-            print(
-                f'Error occured: unable to locate class selector with the value {selector}')
+            print(f'Error occured: unable to locate class selector with the value {selector}')
             pass
         except IndexError:
             # print('Image index out of range')
@@ -240,7 +205,7 @@ class WAScrapper:
                     time.sleep(2)
                     self.__perform_scroll()
                     time.sleep(1)
-                    self.__load_chat_media()
+                    # self.__load_chat_media()
                     chats = self.driver.find_elements(
                         By.CLASS_NAME, chat_row)
                     if chats:
@@ -266,6 +231,7 @@ class WAScrapper:
 
     def get_message_data(self, webelement):
         '''collect message info for messages in chat history'''
+        self.__load_chat_media(webelement)
         message_id = self.__get_chat_id(webelement)
         message_image = self.__get_chat_image(webelement)
         timestamp = self.__get_chat_timestamp(webelement)
@@ -286,13 +252,13 @@ class WAScrapper:
         dataframe = pd.DataFrame(chats)
         return dataframe.to_csv(file_name)
 
-    def __load_chat_media(self) -> None:
+    def __load_chat_media(self, webelement):
         # check if media is downloadable
-        download_btn = self.driver.find_elements(
-            By.XPATH, '//span[@data-testid="media-download"]')
-        if download_btn:
-            print(download_btn)
-            for icon in download_btn:
-                icon.click()
-                # wait for few secs for download to complete
+        try:
+            download_btn = webelement.find_element(By.XPATH, '//span[@data-testid="media-download"]')
+            bool(download_btn)
+            if download_btn:
+                download_btn.click()
                 time.sleep(MEDIA_DOWNLOAD_DELAY)
+        except NoSuchElementException:
+            pass
