@@ -1,5 +1,5 @@
 
-USE_DEFAULT_PROFILE = True
+USE_DEFAULT_PROFILE = False
 # This is the default chrome profile name, visit `chrome://settings/manageProfile` to manage profile
 DEFAULT_PROFILE_NAME = "whatsapp_test"
 BROWSER_TYPE = 'gecko'

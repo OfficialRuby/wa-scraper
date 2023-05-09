@@ -160,7 +160,6 @@ class WAScrapper:
         try:
             selector = CLASSES_NAME.get('IMAGE_SELECTOR')
             image = webelement.find_elements(By.CSS_SELECTOR, selector)
-            # print(image)
             if image:
                 main_image = image[1]
                 img_src = main_image.get_attribute('src')
@@ -205,7 +204,6 @@ class WAScrapper:
                     time.sleep(2)
                     self.__perform_scroll()
                     time.sleep(1)
-                    # self.__load_chat_media()
                     chats = self.driver.find_elements(
                         By.CLASS_NAME, chat_row)
                     if chats:
