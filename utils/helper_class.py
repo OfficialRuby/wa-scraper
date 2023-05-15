@@ -21,7 +21,7 @@ import time
 import sys
 import os
 from utils.settings import *
-from utils.validators import Validator
+from utils.validators import Validator, validate_b64_string
 
 
 class WAScrapper:
@@ -32,13 +32,15 @@ class WAScrapper:
         if BROWSER_TYPE == 'gecko':
             self.firefox_profile = webdriver.FirefoxProfile(GECKO_PROFILE)
             self.service = GeckoService(GECKO_DRIVER_PATH)
-            self.driver = GeckoWebDriver(service=self.service, firefox_profile=self.firefox_profile)
+            self.driver = GeckoWebDriver(
+                service=self.service, firefox_profile=self.firefox_profile)
         elif BROWSER_TYPE == 'chrome':
             self.options = webdriver.ChromeOptions()
             self.options.add_argument(CHROME_PROFILE)
             # self.options.add_argument(CHROME_USER)
             self.service = ChromeService(CHROME_DRIVER_PATH)
-            self.driver = ChromeWebDriver(service=self.service, options=self.options)
+            self.driver = ChromeWebDriver(
+                service=self.service, options=self.options)
         self.driver.get("https://web.whatsapp.com/")
         self.driver.maximize_window()
         self.SCROLL_COUNT = SCROLL_COUNT
@@ -73,6 +75,7 @@ class WAScrapper:
                 By.CSS_SELECTOR, class_name)
             return message_body.text
         except NoSuchElementException:
+            print("Chat element changed, chat not collected")
             pass
 
     def __get_chat_author(self, webelement) -> str:
@@ -169,9 +172,12 @@ class WAScrapper:
 
                     result = self.driver.execute_async_script(
                         XHR_SCRIPT, validator.validated_link)
+
                     if type(result) == int:
                         raise Exception(f"Request failed with status {result}")
-                    final_image = base64.b64decode(result)
+                    base64_str = validate_b64_string(result)
+                    final_image = base64.b64decode(base64_str)
+                    validate_b64_string(result)
                     image_path = f'images/{datetime.datetime.now()}.jpg'
                     with open(image_path, 'wb') as f:
                         f.write(final_image)
@@ -179,7 +185,8 @@ class WAScrapper:
             return
         except NoSuchElementException:
             # TODO: refactor to use logging in production
-            print(f'Error occured: unable to locate class selector with the value {selector}')
+            print(
+                f'Error occured: unable to locate class selector with the value {selector}')
             pass
         except IndexError:
             # print('Image index out of range')
@@ -215,10 +222,11 @@ class WAScrapper:
                             f'Error: {chat_row} is not a valid class bame')
 
                 except NoSuchElementException:
-                    print(f'Group with the name {group_name} could not be found')
+                    print(
+                        f'Group with the name {group_name} could not be found')
                     pass
             print('Completed')
-            time.sleep(2)
+            time.sleep(200)
             # self.driver.close()
             self.driver.quit()
             return chat_history
@@ -253,7 +261,8 @@ class WAScrapper:
     def __load_chat_media(self, webelement):
         # check if media is downloadable
         try:
-            download_btn = webelement.find_element(By.XPATH, '//span[@data-testid="media-download"]')
+            download_btn = webelement.find_element(
+                By.XPATH, '//span[@data-testid="media-download"]')
             bool(download_btn)
             if download_btn:
                 download_btn.click()
