@@ -47,6 +47,7 @@ class WAScrapper:
         self.CSV_FILENAME = None
         self.DATE_FORMAT = DATE_FORMAT
         self.PHONE_REGEX = PHONE_REGEX
+        self.NAME_REGEX = NAME_REGEX
         try:
             with open('groups.txt', 'r') as f:
                 self.group_names = f.readlines()
@@ -75,22 +76,27 @@ class WAScrapper:
                 By.CSS_SELECTOR, class_name)
             return message_body.text
         except NoSuchElementException:
-            print("Chat element changed, chat not collected")
+            # print("Chat element changed, chat not collected")
             pass
 
     def __get_chat_author(self, webelement) -> str:
         try:
-            pattern = self.PHONE_REGEX
+            phone_pattern = self.PHONE_REGEX
+            name_pattern = self.NAME_REGEX
             copyable_text = CLASSES_NAME.get('COPYABLE_TEXT')
             chat_class = webelement.find_element(
                 By.CSS_SELECTOR, copyable_text)
             contact_str = chat_class.get_attribute('data-pre-plain-text')
             if contact_str:
-                match = re.search(pattern, contact_str)
-                if match:
-                    author = match.group()
+                phone_match = re.search(phone_pattern, contact_str)
+                name_match = re.search(name_pattern, contact_str)
+                if phone_match:
+                    author = phone_match.group()
                     return author
                 # if contact is not in contact list
+                elif name_match:
+                    author = name_match.group(1)
+                    return author
                 else:
                     contact = CLASSES_NAME.get('UNSAVED_CONTACT')
                     author = webelement.find_element(
@@ -100,12 +106,12 @@ class WAScrapper:
 
         except NoSuchElementException:
             # not all elements has sender info
+            # print('No such elemment')
             pass
         except NoSuchAttributeException:
             pass
 
     def __get_chat_timestamp(self, webelement) -> str:
-        is_24hr_time = False
         try:
             regex1 = r"\[(\d{1,2}:\d{2}), (\d{1,2}/\d{1,2}/\d{4})\]"
             regex2 = r"\[(\d{1,2}:\d{2} [aApP][mM]), (\d{1,2}/\d{1,2}/\d{4})\]"
@@ -226,7 +232,7 @@ class WAScrapper:
                         f'Group with the name {group_name} could not be found')
                     pass
             print('Completed')
-            time.sleep(200)
+            time.sleep(2)
             # self.driver.close()
             self.driver.quit()
             return chat_history
