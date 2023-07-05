@@ -21,7 +21,7 @@ import time
 import sys
 import os
 from utils.settings import *
-from utils.validators import Validator
+from utils.validators import Validator, validate_b64_string
 
 
 class WAScrapper:
@@ -32,19 +32,22 @@ class WAScrapper:
         if BROWSER_TYPE == 'gecko':
             self.firefox_profile = webdriver.FirefoxProfile(GECKO_PROFILE)
             self.service = GeckoService(GECKO_DRIVER_PATH)
-            self.driver = GeckoWebDriver(service=self.service, firefox_profile=self.firefox_profile)
+            self.driver = GeckoWebDriver(
+                service=self.service, firefox_profile=self.firefox_profile)
         elif BROWSER_TYPE == 'chrome':
             self.options = webdriver.ChromeOptions()
             self.options.add_argument(CHROME_PROFILE)
             # self.options.add_argument(CHROME_USER)
             self.service = ChromeService(CHROME_DRIVER_PATH)
-            self.driver = ChromeWebDriver(service=self.service, options=self.options)
+            self.driver = ChromeWebDriver(
+                service=self.service, options=self.options)
         self.driver.get("https://web.whatsapp.com/")
         self.driver.maximize_window()
         self.SCROLL_COUNT = SCROLL_COUNT
         self.CSV_FILENAME = None
         self.DATE_FORMAT = DATE_FORMAT
         self.PHONE_REGEX = PHONE_REGEX
+        self.NAME_REGEX = NAME_REGEX
         try:
             with open('groups.txt', 'r') as f:
                 self.group_names = f.readlines()
@@ -73,21 +76,27 @@ class WAScrapper:
                 By.CSS_SELECTOR, class_name)
             return message_body.text
         except NoSuchElementException:
+            # print("Chat element changed, chat not collected")
             pass
 
     def __get_chat_author(self, webelement) -> str:
         try:
-            pattern = self.PHONE_REGEX
+            phone_pattern = self.PHONE_REGEX
+            name_pattern = self.NAME_REGEX
             copyable_text = CLASSES_NAME.get('COPYABLE_TEXT')
             chat_class = webelement.find_element(
                 By.CSS_SELECTOR, copyable_text)
             contact_str = chat_class.get_attribute('data-pre-plain-text')
             if contact_str:
-                match = re.search(pattern, contact_str)
-                if match:
-                    author = match.group()
+                phone_match = re.search(phone_pattern, contact_str)
+                name_match = re.search(name_pattern, contact_str)
+                if phone_match:
+                    author = phone_match.group()
                     return author
                 # if contact is not in contact list
+                elif name_match:
+                    author = name_match.group(1)
+                    return author
                 else:
                     contact = CLASSES_NAME.get('UNSAVED_CONTACT')
                     author = webelement.find_element(
@@ -97,12 +106,12 @@ class WAScrapper:
 
         except NoSuchElementException:
             # not all elements has sender info
+            # print('No such elemment')
             pass
         except NoSuchAttributeException:
             pass
 
     def __get_chat_timestamp(self, webelement) -> str:
-        is_24hr_time = False
         try:
             regex1 = r"\[(\d{1,2}:\d{2}), (\d{1,2}/\d{1,2}/\d{4})\]"
             regex2 = r"\[(\d{1,2}:\d{2} [aApP][mM]), (\d{1,2}/\d{1,2}/\d{4})\]"
@@ -169,9 +178,12 @@ class WAScrapper:
 
                     result = self.driver.execute_async_script(
                         XHR_SCRIPT, validator.validated_link)
+
                     if type(result) == int:
                         raise Exception(f"Request failed with status {result}")
-                    final_image = base64.b64decode(result)
+                    base64_str = validate_b64_string(result)
+                    final_image = base64.b64decode(base64_str)
+                    validate_b64_string(result)
                     image_path = f'images/{datetime.datetime.now()}.jpg'
                     with open(image_path, 'wb') as f:
                         f.write(final_image)
@@ -179,7 +191,8 @@ class WAScrapper:
             return
         except NoSuchElementException:
             # TODO: refactor to use logging in production
-            print(f'Error occured: unable to locate class selector with the value {selector}')
+            print(
+                f'Error occured: unable to locate class selector with the value {selector}')
             pass
         except IndexError:
             # print('Image index out of range')
@@ -215,7 +228,8 @@ class WAScrapper:
                             f'Error: {chat_row} is not a valid class bame')
 
                 except NoSuchElementException:
-                    print(f'Group with the name {group_name} could not be found')
+                    print(
+                        f'Group with the name {group_name} could not be found')
                     pass
             print('Completed')
             time.sleep(2)
@@ -253,7 +267,8 @@ class WAScrapper:
     def __load_chat_media(self, webelement):
         # check if media is downloadable
         try:
-            download_btn = webelement.find_element(By.XPATH, '//span[@data-testid="media-download"]')
+            download_btn = webelement.find_element(
+                By.XPATH, '//span[@data-testid="media-download"]')
             bool(download_btn)
             if download_btn:
                 download_btn.click()
